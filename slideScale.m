@@ -16,6 +16,8 @@ function [position,RT,answered] = slideScale(screenPointer,question,windowrect,l
 %                           labels of the extremes of the scale. E.g.
 %                           {'disagree' 'agree'}.
 %   Optional input:
+%       bgColour            RGB vector specifying the background colour of
+%                           the screen. Default is white ([1 1 1]).
 %       sliderHeight        integer specifying the height of the slider in
 %                           pixels. Default is 15.
 %       sliderStartPos      string label indicating the starting position
@@ -69,21 +71,19 @@ screenY = windowrect(4);
 centerX = round(screenX/2);
 % Deal with optional input
 numvarargs = length(varargin);
-if numvarargs > 10, error('requires at most 10 optional inputs'); end
+if numvarargs > 11, error('requires at most 11 optional inputs'); end
 % Default values for optional arguments
-optargs = {15 'random' [1 0 0] 5 0.9 0.5 1 30 60 10};
+optargs = {[1 1 1] 15 'random' [1 0 0] 5 0.9 0.5 1 30 60 10};
 % Skip any new inputs if they are empty
 newVals = cellfun(@(x) ~isempty(x), varargin); % credit to Loren Shure: https://blogs.mathworks.com/loren/2009/05/12/optional-arguments-using-empty-as-placeholder/
 % Overwrite with those specified by user
 optargs(newVals) = varargin(newVals);
 % Place optional arguments in memorable variable names
-[sliderHeight,sliderStartPos,sliderCol,width,scaleLength,...
+[bgColour,sliderHeight,sliderStartPos,sliderCol,width,scaleLength,...
     scalePos,readTime,warningTime,abortTime,numBands] = optargs{:};
 %% Prepare for drawing scale and labels
 left = screenX*(1-scaleLength);
 right = screenX*scaleLength;
-% Scale itself has a 'banded' design, see https://youtu.be/vxV0rV9LX_U for
-% reason why
 % Define size of each band of the scale in pixels
 lineIncrement = (right-left)/numBands;
 % Set colour for each band of the scale:
@@ -148,11 +148,25 @@ while ~answered
     % Abort if answer takes way too long
     if secs - t0 > abortTime, break; end
 end
+% If answered, briefly keep displaying the slider in its position at the
+% time of answer, so that participant can properly process the outcome of
+% their mouse click
+if answered
+    WaitSecs('UntilTime',secs+0.2);
+end
 %% Write output
+t1 = GetSecs; % get final timestamp
+% Briefly present a blank screen, so that the (potential) transition to the
+% next question in the loop is less abrupt
+Screen('FillRect',screenPointer,bgColour);
+Screen('Flip',screenPointer);
+% Initialise output arguments
 [RT,position] = deal(NaN);
 if answered
-    RT = secs - t0;
+    RT = secs - t0; % RT in seconds
     position = round(x) - centerX;  % absolute position of slider relative to center of screen (i.e. center of scale)
     position = (position/(centerX-left))*100; % calculate position as percentage distance from center to either extremes
 end
+% Wait until blank screen has been shown for 2 tenths
+WaitSecs('UntilTime',t1+0.2);
 end
